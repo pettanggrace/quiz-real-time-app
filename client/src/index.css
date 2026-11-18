@@ -1,0 +1,142 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+/* Teinte pilotable et animable : le fond change de couleur quand la série est en feu */
+@property --h {
+  syntax: '<number>';
+  inherits: true;
+  initial-value: 255;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+:root {
+  --h: 255;
+  transition: --h 1.2s ease;
+
+  --c1: hsl(var(--h) 90% 66%);
+  --c2: hsl(calc(var(--h) + 55) 90% 62%);
+  --c3: hsl(calc(var(--h) - 60) 90% 60%);
+  --glow: hsl(var(--h) 90% 60% / 0.35);
+
+  --bg: #07070f;
+  --text: #eef0ff;
+  --muted: #a3a8c7;
+  --dim: #8c91b4;
+  --border: rgba(255, 255, 255, 0.09);
+  --border-hover: rgba(255, 255, 255, 0.2);
+  --glass: rgba(255, 255, 255, 0.05);
+  --glass-hover: rgba(255, 255, 255, 0.09);
+  --ok: #34d399;
+  --ko: #fb7185;
+  --gold: #fbbf24;
+  --silver: #cbd5e1;
+  --bronze: #f59e0b;
+  --radius: 18px;
+  --radius-sm: 12px;
+  --font: 'Inter', system-ui, -apple-system, sans-serif;
+  --display: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+:root[data-fire='1'] {
+  --h: 22;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+}
+
+button {
+  font-family: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--c1);
+  outline-offset: 3px;
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(26px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.88); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== Variables complémentaires + thème clair ===== */
+:root {
+  --soft: rgba(255, 255, 255, 0.07);
+  --strong: #ffffff;
+  --vignette: rgba(7, 7, 15, 0.75);
+  --on-accent: #0a0a18;
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --c1: hsl(var(--h) 80% 52%);
+  --c2: hsl(calc(var(--h) + 55) 80% 52%);
+  --c3: hsl(calc(var(--h) - 60) 80% 56%);
+  --glow: hsl(var(--h) 80% 50% / 0.28);
+  --bg: #f3f4fb;
+  --text: #14163a;
+  --muted: #444a75;
+  --dim: #5f6590;
+  --border: rgba(20, 22, 58, 0.12);
+  --border-hover: rgba(20, 22, 58, 0.28);
+  --glass: rgba(255, 255, 255, 0.7);
+  --glass-hover: rgba(255, 255, 255, 0.95);
+  --soft: rgba(20, 22, 58, 0.07);
+  --strong: #14163a;
+  --vignette: rgba(243, 244, 251, 0.7);
+  --on-accent: #ffffff;
+  --ok: #059669;
+  --ko: #e11d48;
+  --gold: #d97706;
+  --silver: #94a3b8;
+}
+:root { --input-bg: rgba(0, 0, 0, 0.25); }
+:root[data-theme='light'] { --input-bg: rgba(255, 255, 255, 0.9); }
