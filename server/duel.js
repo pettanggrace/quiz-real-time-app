@@ -1,12 +1,22 @@
 // Mode duel 1 contre 1 en temps réel (WebSocket, chemin /ws).
-// Serveur de DEV : le serveur est l'arbitre, il n'envoie jamais la bonne réponse avant la fin de la question.
+// Hybride : persistance BDD via roomService.js + état WebSocket en mémoire pour la performance temps réel.
 const { WebSocketServer } = require('ws');
+const {
+  createRoom,
+  getRoomByCode,
+  updateRoomState,
+  addPlayerToRoom,
+  updatePlayerScore,
+  deleteRoom,
+} = require('./services/roomService');
 
 const TIME_MS = 15000;
 const REVEAL_MS = 2800;
 const COUNTDOWN_MS = 3000;
 const TOTAL = 10;
-const rooms = new Map();
+
+// Cache en mémoire pour les connexions WebSocket (pour la performance temps réel)
+const roomCache = new Map();
 
 const send = (ws, msg) => {
   if (ws && ws.readyState === 1) ws.send(JSON.stringify(msg));
@@ -19,7 +29,7 @@ function newCode() {
   let c;
   do {
     c = Array.from({ length: 4 }, () => A[Math.floor(Math.random() * A.length)]).join('');
-  } while (rooms.has(c));
+  } while (roomCache.has(c));
   return c;
 }
 
@@ -32,9 +42,10 @@ function shuffle(arr) {
   return a;
 }
 
-function destroy(room) {
+async function destroy(room) {
   clearTimeout(room.timer);
-  rooms.delete(room.code);
+  roomCache.delete(room.code);
+  await deleteRoom(room.code);
 }
 
 function nextQuestion(room) {
@@ -54,7 +65,7 @@ function nextQuestion(room) {
   room.timer = setTimeout(() => reveal(room), TIME_MS + 300);
 }
 
-function reveal(room) {
+async function reveal(room) {
   clearTimeout(room.timer);
   if (room.state !== 'play') return;
   const q = room.qs[room.idx];
@@ -73,6 +84,15 @@ function reveal(room) {
     return { choice: a ? a.choice : -1, ok, pts, score: p.score };
   });
   broadcast(room, { t: 'reveal', index: room.idx, correct: q.answer, players });
+
+  // Synchroniser les scores avec la BDD
+  for (let i = 0; i < room.players.length; i++) {
+    if (room.players[i].dbId) {
+      await updatePlayerScore(room.players[i].dbId, room.players[i].score, room.players[i].streak);
+    }
+  }
+
+  await updateRoomState(room.code, 'play', room.idx);
   room.timer = setTimeout(() => nextQuestion(room), REVEAL_MS);
 }
 
@@ -89,7 +109,7 @@ function startRound(room) {
   room.timer = setTimeout(() => nextQuestion(room), COUNTDOWN_MS);
 }
 
-function endGame(room) {
+async function endGame(room) {
   room.state = 'end';
   const [a, b] = room.players;
   const winner = a.score === b.score ? -1 : a.score > b.score ? 0 : 1;
@@ -99,17 +119,18 @@ function endGame(room) {
     players: room.players.map((p) => ({ pseudo: p.pseudo, score: p.score })),
   });
   room.rematch = [false, false];
+  await updateRoomState(room.code, 'end', room.idx);
   room.timer = setTimeout(() => destroy(room), 120000);
 }
 
-function attach(server, bank) {
+async function attach(server, bank) {
   const wss = new WebSocketServer({ server, path: '/ws' });
 
   wss.on('connection', (ws) => {
     let room = null;
     let me = -1;
 
-    ws.on('message', (raw) => {
+    ws.on('message', async (raw) => {
       let m;
       try {
         m = JSON.parse(raw);
@@ -120,26 +141,46 @@ function attach(server, bank) {
       if (m.t === 'create' && !room) {
         const pseudo = clean(m.pseudo);
         if (pseudo.length < 2) return send(ws, { t: 'error', message: 'Pseudo invalide.' });
+
+        const code = newCode();
+        const dbRoom = await createRoom(code);
+        const dbPlayer = await addPlayerToRoom(dbRoom.id, pseudo, true, null);
+
         room = {
-          code: newCode(), state: 'lobby', idx: -1, qs: [], answers: [null, null], bank, rematch: [false, false],
-          deadline: 0, timer: null,
-          players: [{ ws, pseudo, score: 0, streak: 0 }],
+          code,
+          dbId: dbRoom.id,
+          state: 'lobby',
+          idx: -1,
+          qs: [],
+          answers: [null, null],
+          bank,
+          rematch: [false, false],
+          deadline: 0,
+          timer: null,
+          players: [{ ws, pseudo, score: 0, streak: 0, dbId: dbPlayer.id }],
         };
-        rooms.set(room.code, room);
+        roomCache.set(code, room);
         me = 0;
         return send(ws, { t: 'created', you: 0, code: room.code });
       }
 
       if (m.t === 'join' && !room) {
         const pseudo = clean(m.pseudo);
-        const target = rooms.get(String(m.code || '').toUpperCase().trim());
+        const code = String(m.code || '').toUpperCase().trim();
         if (pseudo.length < 2) return send(ws, { t: 'error', message: 'Pseudo invalide.' });
-        if (!target || target.state !== 'lobby' || target.players.length !== 1) {
+
+        const target = roomCache.get(code);
+        const dbRoom = await getRoomByCode(code);
+
+        if (!target || !dbRoom || target.state !== 'lobby' || target.players.length !== 1) {
           return send(ws, { t: 'error', message: 'Salle introuvable ou déjà complète.' });
         }
+
         room = target;
         me = 1;
-        room.players.push({ ws, pseudo, score: 0, streak: 0 });
+        const dbPlayer = await addPlayerToRoom(dbRoom.id, pseudo, false, null);
+        room.players.push({ ws, pseudo, score: 0, streak: 0, dbId: dbPlayer.id });
+
         const names = room.players.map((p) => p.pseudo);
         send(ws, { t: 'joined', you: 1, code: room.code, players: names });
         send(room.players[0].ws, { t: 'ready', players: names });
@@ -155,6 +196,7 @@ function attach(server, bank) {
         send(room.players[1 - me].ws, { t: 'opp_answered', index: room.idx });
         if (room.answers.every(Boolean)) reveal(room);
       }
+
       if (m.t === 'rematch' && room && room.state === 'end') {
         room.rematch[me] = true;
         send(room.players[1 - me].ws, { t: 'rematch_wanted' });
@@ -163,14 +205,15 @@ function attach(server, bank) {
           startRound(room);
         }
       }
+
       return undefined;
     });
 
-    ws.on('close', () => {
+    ws.on('close', async () => {
       if (!room) return;
       const other = room.players[1 - me];
       send(other && other.ws, { t: room.state === 'end' ? 'opp_gone' : 'left' });
-      destroy(room);
+      await destroy(room);
     });
   });
 }
