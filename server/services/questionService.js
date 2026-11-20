@@ -1,5 +1,20 @@
 const pool = require('../db');
 
+async function queryWithRetry(queryText, params, maxRetries = 3) {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await pool.query(queryText, params);
+      return result;
+    } catch (err) {
+      if (attempt === maxRetries || err.code !== 'ECONNRESET') {
+        throw err;
+      }
+      console.warn(`Retry ${attempt}/${maxRetries} pour la requête à la base de données`);
+      await new Promise(resolve => setTimeout(resolve, 500 * attempt));
+    }
+  }
+}
+
 async function getAllQuestions(filters = {}) {
   const { category, difficulty, random = false } = filters;
   let query = 'SELECT id, question, choices, answer, category, difficulty FROM questions';
@@ -22,7 +37,7 @@ async function getAllQuestions(filters = {}) {
   // Ordre aléatoire uniquement pour le mode duel
   query += random ? ' ORDER BY RANDOM()' : ' ORDER BY id';
 
-  const result = await pool.query(query, params);
+  const result = await queryWithRetry(query, params);
   return result.rows;
 }
 
