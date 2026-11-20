@@ -70,13 +70,14 @@ Connection string configurée dans `server/.env`.
 4. **Tests** : ajouter des tests backend (actuellement aucun test, `npm test` est un placeholder).
 
 ### Frontend
-1. **Gestion d'erreurs réseau** : retry/feedback quand le backend est down (actuellement `throw` générique).
-2. **Reconnect WebSocket** : le duel ne gère pas une perte de connexion ; ajouter reconnexion + écran "opponent left" soigné.
-3. **Accessibilité** : labels sur les boutons de choix, navigation clavier dans le quiz, contrastes.
-4. **Perf** : `React.memo`/`useMemo` sur les pages à animations lourdes (`Particles`, `Aurora`), lazy-loading des pages (`React.lazy`).
-5. **Tests** : étendre `scoring.test.js`, ajouter des tests de composants (Vitest + Testing Library).
-6. **Types** : migration progressive vers TypeScript ou au minimum JSDoc + `tsc --checkJs`.
-7. **UX** : skeletons de chargement, indicateur de série/points en solo, page lobby plus riche (avatars, prêts/cadeaux).
+1. **Authentification utilisateur** : ajouter pages de connexion/inscription, gestion du token JWT (localStorage), envoi du header `Authorization: Bearer <token>` dans les requêtes API. Le backend supporte déjà l'auth (JWT), mais le frontend utilise actuellement un pseudo simple sans véritable authentification.
+2. **Gestion d'erreurs réseau** : retry/feedback quand le backend est down (actuellement `throw` générique).
+3. **Reconnect WebSocket** : le duel ne gère pas une perte de connexion ; ajouter reconnexion + écran "opponent left" soigné.
+4. **Accessibilité** : labels sur les boutons de choix, navigation clavier dans le quiz, contrastes.
+5. **Perf** : `React.memo`/`useMemo` sur les pages à animations lourdes (`Particles`, `Aurora`), lazy-loading des pages (`React.lazy`).
+6. **Tests** : étendre `scoring.test.js`, ajouter des tests de composants (Vitest + Testing Library).
+7. **Types** : migration progressive vers TypeScript ou au minimum JSDoc + `tsc --checkJs`.
+8. **UX** : skeletons de chargement, indicateur de série/points en solo, page lobby plus riche (avatars, prêts/cadeaux).
 
 ## Dette / points d'attention
 - `server/package.json` n'a pas de script `start`/`dev` — lancer avec `node index.js`.
