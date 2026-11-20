@@ -8,7 +8,7 @@ export async function fetchQuestions() {
 
 // `points` est optionnel : le serveur peut l'ignorer (le score officiel reste `score`)
 export async function submitAnswers(pseudo, answers, points) {
-  const res = await fetch(`${API_BASE}/submit`, {
+  const res = await fetch(`${API_BASE}/scores`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ pseudo, answers, points }),
