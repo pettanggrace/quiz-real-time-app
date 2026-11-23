@@ -1,0 +1,21 @@
+name: CI/CD Docker Local VM
+
+on:
+  push:
+    branches: [ "main", "feature/*" ]
+
+jobs:
+  build-and-deploy:
+    runs-on: [ self-hosted, linux ]
+    steps:
+      - name: Récupérer le code
+        uses: actions/checkout@v4
+
+      - name: Reconstruire et redémarrer les conteneurs
+        run: |
+          docker compose up -d --build --no-deps backend frontend
+          docker compose up -d cadvisor prometheus grafana
+
+      - name: Afficher les logs pour debugging
+        if: failure()
+        run: docker compose logs --tail=100
